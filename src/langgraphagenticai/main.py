@@ -5,6 +5,7 @@ import streamlit as st
 from src.langgraphagenticai.LLMs.loadllms import LoadLLMs
 from src.langgraphagenticai.commonconstants.constants import SELECTED_USECASE
 from src.langgraphagenticai.graph.graph_builder import GraphBuilder
+from src.langgraphagenticai.memory.chat_history import ChatHistory
 from src.langgraphagenticai.ui.streamlitui.display_result import DisplayResultStreamLit
 from src.langgraphagenticai.ui.streamlitui.loadui import LoadStreamLitUi
 
@@ -18,6 +19,7 @@ def load_langgraph_agentic_app():
 
     #reset thread to start a new conversation
     if st.button("Reset Conversation"):
+        ChatHistory.clear_history(st.session_state["thread_id"])
         st.session_state["thread_id"] = str(uuid.uuid4())
         st.success("Conversation reset. A new thread has been created.")
 
