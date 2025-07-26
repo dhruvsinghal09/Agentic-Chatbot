@@ -23,6 +23,7 @@ class LoadLLMs():
                     model = self.load_ollama_model()
             return model
         except Exception as e:
+            st.error("Please re-check your API key with your selected LLM")
             raise ValueError(f"Error loading LLM model: {e}")
 
     def load_groq_model(self):

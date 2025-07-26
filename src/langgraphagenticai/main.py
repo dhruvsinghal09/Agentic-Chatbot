@@ -4,7 +4,7 @@ import uuid
 import streamlit as st
 
 from src.langgraphagenticai.LLMs.loadllms import LoadLLMs
-from src.langgraphagenticai.commonconstants.constants import SELECTED_USECASE
+from src.langgraphagenticai.commonconstants.constants import SELECTED_USECASE, LLM_API_KEY
 from src.langgraphagenticai.graph.graph_builder import GraphBuilder
 from src.langgraphagenticai.memory.chat_history import ChatHistory
 from src.langgraphagenticai.ui.streamlitui.display_result import DisplayResultStreamLit
@@ -27,6 +27,9 @@ def load_langgraph_agentic_app():
     st.sidebar.write(f"Current Thread ID: {st.session_state['thread_id']}")
 
     user_input=ui.load_streamlit_ui()
+    if not user_input[LLM_API_KEY]:
+        st.error("API key is Required.")
+
 
     user_message = st.chat_input("Enter you message:")
 
