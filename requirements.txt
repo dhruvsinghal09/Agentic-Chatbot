@@ -1,5 +1,5 @@
 langchain
-langgraph
+langgraph~=0.5.4
 langchain_community
 langchain_core
 langchain_groq
