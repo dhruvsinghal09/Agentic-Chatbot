@@ -28,10 +28,6 @@ def load_langgraph_agentic_app():
 
     user_input=ui.load_streamlit_ui()
 
-    if not user_input:
-        st.error("Error: Failed to load user input from ui.")
-        return
-
     user_message = st.chat_input("Enter you message:")
 
     if user_message:
@@ -51,5 +47,4 @@ def load_langgraph_agentic_app():
         #output_path.write_bytes(png_data)
         DisplayResultStreamLit(graph, usecase, user_message).display_result_on_ui()
     else:
-        st.error("Error: Failed to load user input from ui.")
         return
