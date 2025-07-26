@@ -1,5 +1,6 @@
 import re
 from typing import Literal
+import streamlit as st
 
 import requests
 from bs4 import BeautifulSoup
@@ -11,12 +12,12 @@ from src.langgraphagenticai.state.graph_state import State
 
 
 class NewsWriterNodes:
-    def __init__(self,llm):
-        self.llm=llm
+    def __init__(self, llm):
+        self.llm = llm
 
-    def news_writer(self, state:State):
+    def news_writer(self, state: State):
         """Generate a news article from either a short story description or a URL + description."""
-        user_messages=state["messages"]
+        user_messages = state["messages"]
         print("inside news_writer")
         input_text = user_messages[-1].content
 
@@ -73,19 +74,23 @@ class NewsWriterNodes:
 
                 Now draft the article:
                 """,
-            input_variables=["user_input","suggestions"]
+            input_variables=["user_input", "suggestions"]
         )
         chain_news = prompt | self.llm
         suggestions = state.get("suggestions", "")
-        result = chain_news.invoke({"user_input": user_input,"suggestions": suggestions})
+        try:
+            result = chain_news.invoke({"user_input": user_input, "suggestions": suggestions})
+        except Exception as e:
+            st.error("API key is incorrect.")
+            raise ValueError(f"Error loading LLM model: {e}")
         print("news_writer result")
         print(result)
         return {"messages": AIMessage(content=result.content)}
 
-    def evaluate_article(self, state:State):
+    def evaluate_article(self, state: State):
         """Evaluate the generated article against accuracy, respect and 5W1H principles."""
         text = state["messages"][-1].content.strip()
-        prompt=PromptTemplate(
+        prompt = PromptTemplate(
             template="""
                 You are an editor evaluating a draft news article for correctness, fairness, and structure.
 
@@ -114,16 +119,20 @@ class NewsWriterNodes:
                 """,
             input_variables=["article_text"]
         )
-        llm=self.llm
-        llm_with_structured_output=llm.with_structured_output(ArticleEvaluationResult)
+        llm = self.llm
+        llm_with_structured_output = llm.with_structured_output(ArticleEvaluationResult)
         chain = prompt | llm_with_structured_output
-        result = chain.invoke({"article_text": text})
+        try:
+            result = chain.invoke({"article_text": text})
+        except Exception as e:
+            st.error("API key is incorrect.")
+            raise ValueError(f"Error loading LLM model: {e}")
 
         print("evaluator result")
         print(result)
         return {"messages": state['messages'], "is_valid": result.is_valid, "suggestions": result.suggestions}
 
-    def route(self,state:State) -> Literal["generate","__end__"]:
+    def route(self, state: State) -> Literal["generate", "__end__"]:
         """Route the graph to either end or re-generate node based on validity."""
         if state["is_valid"] == "Valid":
             print("Enters valid route")
@@ -132,7 +141,7 @@ class NewsWriterNodes:
             print("Enters generate route")
             return "generate"
 
-    def fetch_article_from_url(self,url:str) -> str:
+    def fetch_article_from_url(self, url: str) -> str:
         try:
             resp = requests.get(url, timeout=10)
             soup = BeautifulSoup(resp.text, "html.parser")
