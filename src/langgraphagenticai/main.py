@@ -1,3 +1,4 @@
+import pathlib
 import uuid
 
 import streamlit as st
@@ -34,11 +35,20 @@ def load_langgraph_agentic_app():
     user_message = st.chat_input("Enter you message:")
 
     if user_message:
+        print(user_message)
         load_llm = LoadLLMs(user_input)
         llm = load_llm.load_llms()
+        print(llm)
         graph_builder = GraphBuilder(llm)
         usecase = user_input[SELECTED_USECASE]
+        print(usecase)
         graph = graph_builder.get_graph_by_usecase(usecase)
+        print(graph)
+        #png_data = graph.get_graph().draw_mermaid_png()
+
+        # Save it to a file
+        #output_path = pathlib.Path("news_content_writer.png")
+        #output_path.write_bytes(png_data)
         DisplayResultStreamLit(graph, usecase, user_message).display_result_on_ui()
     else:
         st.error("Error: Failed to load user input from ui.")

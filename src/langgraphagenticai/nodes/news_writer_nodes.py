@@ -1,0 +1,143 @@
+import re
+from typing import Literal
+
+import requests
+from bs4 import BeautifulSoup
+from langchain_core.messages import AIMessage
+from langchain_core.prompts import PromptTemplate
+
+from src.langgraphagenticai.models.ArticleEvaluationResult import ArticleEvaluationResult
+from src.langgraphagenticai.state.graph_state import State
+
+
+class NewsWriterNodes:
+    def __init__(self,llm):
+        self.llm=llm
+
+    def news_writer(self, state:State):
+        """Generate a news article from either a short story description or a URL + description."""
+        user_messages=state["messages"]
+        print("inside news_writer")
+        input_text = user_messages[-1].content
+
+        urls = re.findall(r'https?://\S+', input_text)
+        description = re.sub(r'https?://\S+', '', input_text).strip()
+
+        user_input = ""
+
+        if description:
+            user_input += f"\n[User Description]\n{description}\n"
+
+        if urls:
+            user_input += "\n[Reference Articles]\n"
+            for url in urls:
+                article_text = self.fetch_article_from_url(url)
+                user_input += f"\n--- Content from {url} ---\n{article_text}\n"
+
+        if not user_input.strip():
+            user_input = "No valid description or article URLs were provided."
+        print("user_input inside news_writer")
+        prompt = PromptTemplate(
+            template="""
+                You are an experienced news content writer.
+
+                TASK:
+                Based on the USER INPUT below and SUGGESTIONS if it exists, draft a clear, factual, and respectful news article.
+
+                USER INPUT:
+                {user_input}
+                SUGGESTIONS:
+                {suggestions}
+
+                GUIDELINES:
+                1. Accuracy:
+                   - Do NOT invent facts.
+                   - Only use details from the user description or the referenced URL.
+                   - If a claim comes from an external source, attribute it explicitly
+                     (e.g., "According to X, ...").
+                2. Respect:
+                   - Use respectful, neutral, and professional tone.
+                   - Avoid disrespectful statements except when describing convicted criminals,
+                     terrorists, or fraudsters.
+                3. 5W1H Principles:
+                   - Ensure the article answers:
+                     - What happened?
+                     - Who is involved?
+                     - When did it happen?
+                     - Where did it happen?
+                     - Why did it happen?
+                     - How did it happen?
+                4. Structure:
+                   - Write like a professional journalist.
+                   - Include a headline, a short lead paragraph, and the body.
+
+                Now draft the article:
+                """,
+            input_variables=["user_input","suggestions"]
+        )
+        chain_news = prompt | self.llm
+        suggestions = state.get("suggestions", "")
+        result = chain_news.invoke({"user_input": user_input,"suggestions": suggestions})
+        print("news_writer result")
+        print(result)
+        return {"messages": AIMessage(content=result.content)}
+
+    def evaluate_article(self, state:State):
+        """Evaluate the generated article against accuracy, respect and 5W1H principles."""
+        text = state["messages"][-1].content.strip()
+        prompt=PromptTemplate(
+            template="""
+                You are an editor evaluating a draft news article for correctness, fairness, and structure.
+
+                **Article to evaluate:**
+                {article_text}
+
+                Please evaluate the article against these criteria:
+
+                1. **Accuracy:** 
+                   - Ensure the article does not make unverified claims on its own.
+                   - It may attribute statements correctly (e.g., "X said to Y"), but must not invent facts.
+
+                2. **Respect:** 
+                   - Ensure the language is respectful and neutral, except in cases involving convicted criminals, terrorists, or fraudsters.
+
+                3. **5W1H Principles:**
+                   - Does the article clearly answer: What, Who, When, Where, Why, and How?
+
+                **Output:**
+                - List any issues found, or say "No issues found".
+                - Give a pass/fail status.
+
+                Respond in the format:
+                is_valid: Valid/Not Valid
+                suggestions: Suggestion why the article failed, empty if valid.
+                """,
+            input_variables=["article_text"]
+        )
+        llm=self.llm
+        llm_with_structured_output=llm.with_structured_output(ArticleEvaluationResult)
+        chain = prompt | llm_with_structured_output
+        result = chain.invoke({"article_text": text})
+
+        print("evaluator result")
+        print(result)
+        return {"messages": state['messages'], "is_valid": result.is_valid, "suggestions": result.suggestions}
+
+    def route(self,state:State) -> Literal["generate","__end__"]:
+        """Route the graph to either end or re-generate node based on validity."""
+        if state["is_valid"] == "Valid":
+            print("Enters valid route")
+            return "__end__"
+        else:
+            print("Enters generate route")
+            return "generate"
+
+    def fetch_article_from_url(self,url:str) -> str:
+        try:
+            resp = requests.get(url, timeout=10)
+            soup = BeautifulSoup(resp.text, "html.parser")
+            paragraphs = [p.get_text() for p in soup.find_all("p")]
+            print(paragraphs)
+            return "\n".join(paragraphs[:20])  # take first 20 paragraphs
+        except Exception as e:
+            return f"Error fetching article from URL: {e}"

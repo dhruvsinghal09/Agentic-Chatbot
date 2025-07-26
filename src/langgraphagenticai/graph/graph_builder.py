@@ -3,6 +3,7 @@ from langgraph.constants import START, END
 from langgraph.graph import StateGraph
 
 from src.langgraphagenticai.nodes.chatbot_nodes import ChatbotNodes
+from src.langgraphagenticai.nodes.news_writer_nodes import NewsWriterNodes
 from src.langgraphagenticai.state.graph_state import State
 
 
@@ -11,7 +12,7 @@ class GraphBuilder:
         self.llm = llm
         self.graph_builder=StateGraph(State)
 
-    def workflow(self):
+    def chatbot_workflow(self):
         self.chatbotnodes=ChatbotNodes(self.llm)
         self.graph_builder.add_node("chatbot",self.chatbotnodes.chatbot)
         self.graph_builder.add_edge(START,"chatbot")
@@ -20,7 +21,21 @@ class GraphBuilder:
 
     def get_graph_by_usecase(self,usecase:str):
         if usecase=="Basic Chatbot":
-            self.workflow()
+            self.chatbot_workflow()
+            return self.graph_builder.compile()
+        elif usecase=="News Content Writer":
+            print("Inside News Content Writer usecase")
+            self.news_content_workflow()
             return self.graph_builder.compile()
         else:
             raise ValueError(f"Unknown usecase: {usecase}")
+
+    def news_content_workflow(self):
+        newswriternodes=NewsWriterNodes(self.llm)
+        self.graph_builder.add_node("generate",newswriternodes.news_writer)
+        self.graph_builder.add_node("evaluator",newswriternodes.evaluate_article)
+        self.graph_builder.add_edge(START,"generate")
+        self.graph_builder.add_edge("generate","evaluator")
+        self.graph_builder.add_conditional_edges("evaluator",newswriternodes.route)
+        self.graph_builder.add_edge("evaluator",END)
+
