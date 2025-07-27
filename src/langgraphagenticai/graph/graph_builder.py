@@ -32,10 +32,12 @@ class GraphBuilder:
 
     def news_content_workflow(self):
         newswriternodes=NewsWriterNodes(self.llm)
+        self.graph_builder.add_node("intent_checker",newswriternodes.intent_checker)
         self.graph_builder.add_node("generate",newswriternodes.news_writer)
-        self.graph_builder.add_node("evaluator",newswriternodes.evaluate_article)
-        self.graph_builder.add_edge(START,"generate")
-        self.graph_builder.add_edge("generate","evaluator")
-        self.graph_builder.add_conditional_edges("evaluator",newswriternodes.route)
-        self.graph_builder.add_edge("evaluator",END)
+        #self.graph_builder.add_node("evaluator",newswriternodes.evaluate_article)
+        self.graph_builder.add_edge(START,"intent_checker")
+        #self.graph_builder.add_edge("generate","evaluator")
+        self.graph_builder.add_conditional_edges("intent_checker",newswriternodes.intent_tool)
+        #self.graph_builder.add_conditional_edges("evaluator",newswriternodes.route)
+        self.graph_builder.add_edge("generate",END)
 
