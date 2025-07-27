@@ -27,8 +27,9 @@ def load_langgraph_agentic_app():
     st.sidebar.write(f"Current Thread ID: {st.session_state['thread_id']}")
 
     user_input=ui.load_streamlit_ui()
-    if not user_input[LLM_API_KEY] and user_input[SELECTED_LLM] != "Ollama":
-        st.error("API key is Required.")
+    if user_input[SELECTED_LLM] !="Ollama":
+        if not user_input[LLM_API_KEY]:
+            st.error("API key is Required.")
 
 
     user_message = st.chat_input("Enter you message:")
